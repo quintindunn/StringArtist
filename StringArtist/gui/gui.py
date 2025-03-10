@@ -28,7 +28,7 @@ TOOLS = [
     "Nail",
     "Erase",
     "Prioritize",
-    "Export Positions",
+    "Export Positions / Save",
     "Import Positions",
     "Background",
 ]
@@ -54,6 +54,8 @@ class GUI:
         self.root.title(WINDOW_TITLE)
         self.root.tk_setPalette(background='#f0f0f0', foreground='black', activeBackground='#ececec',
                                 activeForeground='black')
+
+        self.root.bind("<Key>", self.keybind_callback)
 
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(2, weight=1)
@@ -95,7 +97,7 @@ class GUI:
 
         if TOOLS[idx] == "Background":
             return self.background_tool_callback()
-        elif TOOLS[idx] == "Export Positions":
+        elif TOOLS[idx] == "Export Positions / Save":
             return self.export_positions_callback()
         elif TOOLS[idx] == "Import Positions":
             return self.import_positions_callback()
@@ -213,6 +215,22 @@ class GUI:
         self.im_path = filepath
 
         self.redraw_canvas()
+
+    def keybind_callback(self, event) -> None:
+        char = event.char.lower()
+
+        if char == "n":
+            self.tool_select_callback(TOOLS.index("Nail"))
+        elif char == "e":
+            self.tool_select_callback(TOOLS.index("Erase"))
+        elif char == "p":
+            self.tool_select_callback(TOOLS.index("Prioritize"))
+        elif char == "b":
+            self.tool_select_callback(TOOLS.index("Background"))
+        elif char == "i":
+            self.tool_select_callback(TOOLS.index("Import Positions"))
+        elif event.state == 8 and char == "s":
+            self.tool_select_callback(TOOLS.index("Export Positions / Save"))
 
     def workspace_click_callback(self, event) -> bool:
         """
