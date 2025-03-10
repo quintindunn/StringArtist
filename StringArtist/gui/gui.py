@@ -353,7 +353,7 @@ class GUI:
         self.clear_canvas()
 
         im = Image.open(self.im_path)
-        im = im.convert(mode="RGB")
+        im = im.convert(mode="RGBA")
 
         im_width, im_height = im.size
         im = scale_to_fit(im, canvas_width, canvas_height)
