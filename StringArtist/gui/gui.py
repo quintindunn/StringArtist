@@ -35,12 +35,31 @@ TOOLS = [
 ]
 
 
+def scale_to_fit(image: Image.Image, x: int, y: int) -> Image.Image:
+    """
+    Scales the image to fit within a box of dimensions of the canvas while maintaining aspect ratio.
+
+    :param image: A PIL Image
+    :param x: Maximum width of the bounding box
+    :param y: Maximum height of the bounding box
+    :return: A new resized PIL Image instance.
+    """
+    image.thumbnail((x, y), Image.LANCZOS)
+    return image
+
+
 class GUI:
     def __init__(self):
         self.root = tk.Tk()
         self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         self.root.title(WINDOW_TITLE)
         self.root.iconbitmap(ICON)
+        self.root.tk_setPalette(
+            background="#f0f0f0",
+            foreground="black",
+            activeBackground="#ececec",
+            activeForeground="black",
+        )
 
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(2, weight=1)
@@ -53,6 +72,7 @@ class GUI:
 
         self.working_im: Union[Image, None] = None
         self.im_path: Union[str, None] = None
+        self.im_scale: float = 1
 
         self.draw_toolbar()
         self.draw_workspace()
@@ -128,11 +148,7 @@ class GUI:
         The callback for importing placements back into the program
         :return: None
         """
-        path = Path(
-            tk.filedialog.askopenfilename(
-                filetypes=(("Placement files", "*.placements.json"),)
-            )
-        )
+        path = Path(tk.filedialog.askopenfilename())
         if not path.is_file():
             messagebox.showinfo("Import Error", f"Couldn't find file {path}!")
             return
@@ -280,13 +296,23 @@ class GUI:
         :return:
         """
 
+        canvas_width, canvas_height = (
+            self.workspace_canvas.winfo_width(),
+            self.workspace_canvas.winfo_height(),
+        )
         self.clear_canvas()
 
         im = Image.open(self.im_path)
         im = im.convert(mode="RGB")
 
-        self.working_im = im
+        im_width, im_height = im.size
+        im = scale_to_fit(im, canvas_width, canvas_height)
 
+        self.im_scale = min(1.0, canvas_width / im_width)
+
+        logger.info(f"Image Scale: {self.im_scale}")
+
+        self.working_im = im
         tk_im = ImageTk.PhotoImage(self.working_im)
 
         self.workspace_frame.workspace_im = tk_im
