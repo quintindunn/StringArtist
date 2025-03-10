@@ -7,7 +7,7 @@ from pathlib import Path
 from PIL import Image, ImageTk
 from typing import Union
 
-from StringArtist.meta import (
+from StringArtist.config import (
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
     WINDOW_TITLE,
