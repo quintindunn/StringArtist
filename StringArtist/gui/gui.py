@@ -95,7 +95,19 @@ class GUI:
 
         btn.configure(background="#dbdbdb")
 
-    def export_positions_callback(self):
+    def export_positions_callback(self) -> None:
+        """
+        The callback for exporting nail positions
+        :return: None
+        """
+
+        if len(self.placements) < 3:
+            messagebox.showinfo(
+                "Not Enough Points",
+                f"Need at least 3 nail positions to be able to export",
+            )
+            return
+
         data = list(map(lambda x: [x[0], x[1], int(x[2])], self.placements))
         path = str(self.im_path) + ".placements.json"
 
@@ -257,7 +269,11 @@ class GUI:
             )
             return False
 
-        self.placements.pop(closest_nail)
+        selected = self.placements.pop(closest_nail)
+
+        if selected[2] and len(self.placements) > 0:
+            self.placements[0][2] = True
+
         self.redraw_canvas()
         return True
 
