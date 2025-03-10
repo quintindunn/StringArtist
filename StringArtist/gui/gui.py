@@ -120,6 +120,12 @@ class GUI:
 
         btn.configure(background="#dbdbdb")
 
+    def scale_coordinate(self, j: int, scale: float = None) -> int:
+        if scale is None:
+            scale = self.im_scale
+
+        return round(j * scale)
+
     def export_positions_callback(self) -> None:
         """
         The callback for exporting nail positions
@@ -133,7 +139,16 @@ class GUI:
             )
             return
 
-        data = list(map(lambda x: [x[0], x[1], int(x[2])], self.placements))
+        data = list(
+            map(
+                lambda x: [
+                    self.scale_coordinate(x[0]),
+                    self.scale_coordinate(x[1]),
+                    int(x[2]),
+                ],
+                self.placements,
+            )
+        )
         path = str(self.im_path) + ".placements.json"
 
         logger.info(f"Exporting positions to {path!r}")
@@ -186,7 +201,22 @@ class GUI:
             return
 
         self.placements.clear()
-        self.placements.extend(new_placements)
+
+        im = Image.open(self.im_path)
+        im_width = im.width
+        im.close()
+        self.im_scale = max(1.0, im_width / self.workspace_canvas.winfo_width())
+
+        # Scale the placements
+        for placement in new_placements:
+            p = placement
+            self.placements.append(
+                [
+                    self.scale_coordinate(p[0], scale=1 / self.im_scale),
+                    self.scale_coordinate(p[1], scale=1 / self.im_scale),
+                    p[2],
+                ]
+            )
 
         self.redraw_canvas()
 
@@ -308,7 +338,7 @@ class GUI:
         im_width, im_height = im.size
         im = scale_to_fit(im, canvas_width, canvas_height)
 
-        self.im_scale = min(1.0, canvas_width / im_width)
+        self.im_scale = max(1.0, im_width / canvas_width)
 
         logger.info(f"Image Scale: {self.im_scale}")
 
