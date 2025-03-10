@@ -8,13 +8,14 @@ from pathlib import Path
 from tkinter import messagebox
 
 from PIL import Image, ImageTk
-from typing import Union
+from typing import Union, List
 
 from StringArtist.config import (
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
     WINDOW_TITLE,
     WORKSPACE_PADDING,
+    ICON,
 )
 
 logger = logging.getLogger("gui.py")
@@ -43,7 +44,7 @@ def scale_to_fit(image: Image.Image, x: int, y: int) -> Image.Image:
     :param y: Maximum height of the bounding box
     :return: A new resized PIL Image instance.
     """
-    image.thumbnail((x, y), Image.LANCZOS)
+    image.thumbnail((x, y), Image.Resampling.LANCZOS)
     return image
 
 
@@ -52,8 +53,13 @@ class GUI:
         self.root = tk.Tk()
         self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         self.root.title(WINDOW_TITLE)
-        self.root.tk_setPalette(background='#f0f0f0', foreground='black', activeBackground='#ececec',
-                                activeForeground='black')
+        self.root.iconbitmap(ICON)
+        self.root.tk_setPalette(
+            background="#f0f0f0",
+            foreground="black",
+            activeBackground="#ececec",
+            activeForeground="black",
+        )
 
         self.root.bind("<Key>", self.keybind_callback)
 
@@ -73,7 +79,7 @@ class GUI:
         self.draw_toolbar()
         self.draw_workspace()
 
-        self.placements: list[list[int, int, bool]] = []
+        self.placements: List[List] = []
         self.priority_nail: int = 0
 
     @property
@@ -116,6 +122,18 @@ class GUI:
 
         btn.configure(background="#dbdbdb")
 
+    def scale_coordinate(self, j: int, scale: float = None) -> int:
+        """
+        Scales a coordinate to the image:canvas ratio
+        :param j: The coordinate to scale
+        :param scale: The scaling factor to use, leave as None to use self.im_scale
+        :return: The scaled coordinate
+        """
+        if scale is None:
+            scale = self.im_scale
+
+        return round(j * scale)
+
     def export_positions_callback(self) -> None:
         """
         The callback for exporting nail positions
@@ -129,7 +147,16 @@ class GUI:
             )
             return
 
-        data = list(map(lambda x: [x[0], x[1], int(x[2])], self.placements))
+        data = list(
+            map(
+                lambda x: [
+                    self.scale_coordinate(x[0]),
+                    self.scale_coordinate(x[1]),
+                    int(x[2]),
+                ],
+                self.placements,
+            )
+        )
         path = str(self.im_path) + ".placements.json"
 
         logger.info(f"Exporting positions to {path!r}")
@@ -144,15 +171,17 @@ class GUI:
         The callback for importing placements back into the program
         :return: None
         """
-        path = Path(
-            tk.filedialog.askopenfilename(
-            )
-        )
+        path = Path(tk.filedialog.askopenfilename())
         if not path.is_file():
             messagebox.showinfo("Import Error", f"Couldn't find file {path}!")
             return
 
         self.im_path = str(path).rstrip(".placements.json")
+
+        im = Image.open(self.im_path)
+        im_width = im.width
+        im.close()
+        self.im_scale = max(1.0, im_width / self.workspace_canvas.winfo_width())
 
         with open(path, "rb") as f:
             placements = json.load(f)
@@ -163,7 +192,7 @@ class GUI:
             messagebox.showinfo("Import Error", "Invalid file")
             return
 
-        new_placements: list[list[int, int, bool]] | list = []
+        new_placements: List[List] = list()
 
         for i in placements:
             if not isinstance(i, list):
@@ -177,7 +206,14 @@ class GUI:
                     messagebox.showinfo("Import Error", "Invalid file")
                     return
 
-            new_placements.append([i[0], i[1], bool(i[2])])
+            x, y, p = i
+            new_placements.append(
+                [
+                    self.scale_coordinate(x, scale=1 / self.im_scale),
+                    self.scale_coordinate(y, scale=1 / self.im_scale),
+                    bool(p),
+                ]
+            )
 
         if len(new_placements) < 3:
             logger.info("Load failed, not enough placements.")
@@ -186,7 +222,6 @@ class GUI:
 
         self.placements.clear()
         self.placements.extend(new_placements)
-
         self.redraw_canvas()
 
     def background_tool_callback(self) -> None:
@@ -201,9 +236,9 @@ class GUI:
 
         filepath = Path(tkinter.filedialog.askopenfilename())
         if (
-                not filepath
-                or str(filepath) == "."
-                or not filepath.exists(follow_symlinks=True)
+            not filepath
+            or str(filepath) == "."
+            or not filepath.exists(follow_symlinks=True)
         ):
             logger.info(f'No image at path "{filepath}"')
             return
@@ -248,8 +283,8 @@ class GUI:
         y = event.y
 
         im_in_bounds = (
-                canvas_padding <= event.x <= self.working_im.width
-                and canvas_padding <= event.y <= self.working_im.height
+            canvas_padding <= event.x <= self.working_im.width
+            and canvas_padding <= event.y <= self.working_im.height
         )
 
         if not im_in_bounds:
@@ -282,7 +317,7 @@ class GUI:
         :return: A tuple with the index of the closest nail, and the distance to that nail.
         """
 
-        def distance_to_nail(item: list[int, int, bool]) -> float:
+        def distance_to_nail(item: list) -> float:
             """
             Calculates the distance to a nail using the x, y passed to get_closest_nail.
             :param item: List with the nail x, y, and if it's the priority nail.
@@ -311,7 +346,10 @@ class GUI:
         :return:
         """
 
-        canvas_width, canvas_height = self.workspace_canvas.winfo_width(), self.workspace_canvas.winfo_height()
+        canvas_width, canvas_height = (
+            self.workspace_canvas.winfo_width(),
+            self.workspace_canvas.winfo_height(),
+        )
         self.clear_canvas()
 
         im = Image.open(self.im_path)
@@ -320,7 +358,7 @@ class GUI:
         im_width, im_height = im.size
         im = scale_to_fit(im, canvas_width, canvas_height)
 
-        self.im_scale = min(1.0, canvas_width / im_width)
+        self.im_scale = max(1.0, im_width / canvas_width)
 
         logger.info(f"Image Scale: {self.im_scale}")
 

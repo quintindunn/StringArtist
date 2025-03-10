@@ -2,6 +2,8 @@ VERSION = "BETA-0.1"
 WINDOW_TITLE = f"String Artist | Version: {VERSION}"
 CREDITS = "Quintin Dunn - Lead Developer"
 
+ICON = "./icon.ico"
+
 WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 800
 WINDOW_RESIZABLE = True
