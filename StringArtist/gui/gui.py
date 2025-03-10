@@ -1,9 +1,12 @@
 import functools
+import json
 import logging
 import math
 import tkinter as tk
 import tkinter.filedialog
 from pathlib import Path
+from tkinter import messagebox
+
 from PIL import Image, ImageTk
 from typing import Union
 
@@ -25,6 +28,7 @@ TOOLS = [
     "Nail",
     "Erase",
     "Prioritize",
+    "Export Positions",
     "Background",
 ]
 
@@ -74,6 +78,8 @@ class GUI:
 
         if TOOLS[idx] == "Background":
             return self.background_tool_callback()
+        elif TOOLS[idx] == "Export Positions":
+            return self.export_positions_callback()
 
         old_btn = (
             self.toolbar_widgets[self.selected_tool]
@@ -88,6 +94,17 @@ class GUI:
         btn = self.toolbar_widgets[self.selected_tool]
 
         btn.configure(background="#dbdbdb")
+
+    def export_positions_callback(self):
+        data = list(map(lambda x: [x[0], x[1], int(x[2])], self.placements))
+        path = str(self.im_path) + ".placements.json"
+
+        logger.info(f"Exporting positions to {path!r}")
+
+        with open(path, "w") as f:
+            json.dump(data, f)
+
+        messagebox.showinfo("File Saved", f"File saved to {path}")
 
     def background_tool_callback(self) -> None:
         """
