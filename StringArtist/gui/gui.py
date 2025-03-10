@@ -8,7 +8,7 @@ from pathlib import Path
 from tkinter import messagebox
 
 from PIL import Image, ImageTk
-from typing import Union
+from typing import Union, List
 
 from StringArtist.config import (
     WINDOW_HEIGHT,
@@ -44,7 +44,7 @@ def scale_to_fit(image: Image.Image, x: int, y: int) -> Image.Image:
     :param y: Maximum height of the bounding box
     :return: A new resized PIL Image instance.
     """
-    image.thumbnail((x, y), Image.LANCZOS)
+    image.thumbnail((x, y), Image.Resampling.LANCZOS)
     return image
 
 
@@ -77,7 +77,7 @@ class GUI:
         self.draw_toolbar()
         self.draw_workspace()
 
-        self.placements: list[list[int, int, bool]] = []
+        self.placements: List[List] = []
         self.priority_nail: int = 0
 
     @property
@@ -121,6 +121,12 @@ class GUI:
         btn.configure(background="#dbdbdb")
 
     def scale_coordinate(self, j: int, scale: float = None) -> int:
+        """
+        Scales a coordinate to the image:canvas ratio
+        :param j: The coordinate to scale
+        :param scale: The scaling factor to use, leave as None to use self.im_scale
+        :return: The scaled coordinate
+        """
         if scale is None:
             scale = self.im_scale
 
@@ -170,6 +176,11 @@ class GUI:
 
         self.im_path = str(path).rstrip(".placements.json")
 
+        im = Image.open(self.im_path)
+        im_width = im.width
+        im.close()
+        self.im_scale = max(1.0, im_width / self.workspace_canvas.winfo_width())
+
         with open(path, "rb") as f:
             placements = json.load(f)
 
@@ -179,7 +190,7 @@ class GUI:
             messagebox.showinfo("Import Error", "Invalid file")
             return
 
-        new_placements: list[list[int, int, bool]] | list = []
+        new_placements: List[List] = list()
 
         for i in placements:
             if not isinstance(i, list):
@@ -193,7 +204,14 @@ class GUI:
                     messagebox.showinfo("Import Error", "Invalid file")
                     return
 
-            new_placements.append([i[0], i[1], bool(i[2])])
+            x, y, p = i
+            new_placements.append(
+                [
+                    self.scale_coordinate(x, scale=1 / self.im_scale),
+                    self.scale_coordinate(y, scale=1 / self.im_scale),
+                    bool(p),
+                ]
+            )
 
         if len(new_placements) < 3:
             logger.info("Load failed, not enough placements.")
@@ -201,23 +219,7 @@ class GUI:
             return
 
         self.placements.clear()
-
-        im = Image.open(self.im_path)
-        im_width = im.width
-        im.close()
-        self.im_scale = max(1.0, im_width / self.workspace_canvas.winfo_width())
-
-        # Scale the placements
-        for placement in new_placements:
-            p = placement
-            self.placements.append(
-                [
-                    self.scale_coordinate(p[0], scale=1 / self.im_scale),
-                    self.scale_coordinate(p[1], scale=1 / self.im_scale),
-                    p[2],
-                ]
-            )
-
+        self.placements.extend(new_placements)
         self.redraw_canvas()
 
     def background_tool_callback(self) -> None:
@@ -297,7 +299,7 @@ class GUI:
         :return: A tuple with the index of the closest nail, and the distance to that nail.
         """
 
-        def distance_to_nail(item: list[int, int, bool]) -> float:
+        def distance_to_nail(item: list) -> float:
             """
             Calculates the distance to a nail using the x, y passed to get_closest_nail.
             :param item: List with the nail x, y, and if it's the priority nail.
