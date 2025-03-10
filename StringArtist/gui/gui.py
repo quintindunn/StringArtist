@@ -15,6 +15,7 @@ from StringArtist.config import (
     WINDOW_WIDTH,
     WINDOW_TITLE,
     WORKSPACE_PADDING,
+    ICON,
 )
 
 logger = logging.getLogger("gui.py")
@@ -39,6 +40,7 @@ class GUI:
         self.root = tk.Tk()
         self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         self.root.title(WINDOW_TITLE)
+        self.root.iconbitmap(ICON)
 
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(2, weight=1)
