@@ -10,6 +10,8 @@ from tkinter import messagebox
 from PIL import Image, ImageTk
 from typing import Union, List
 
+from PIL.PngImagePlugin import PngInfo
+
 from StringArtist.config import (
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
@@ -157,12 +159,11 @@ class GUI:
                 self.placements,
             )
         )
-        path = str(self.im_path) + ".placements.json"
+        path = str(self.im_path) + ".stringartpng"
 
-        logger.info(f"Exporting positions to {path!r}")
-
-        with open(path, "w") as f:
-            json.dump(data, f)
+        metadata = PngInfo()
+        metadata.add_text("pins", json.dumps(data))
+        self.working_im.save(path, pnginfo=metadata, format="png")
 
         messagebox.showinfo("File Saved", f"File saved to {path}")
 
@@ -176,15 +177,17 @@ class GUI:
             messagebox.showinfo("Import Error", f"Couldn't find file {path}!")
             return
 
-        self.im_path = str(path).rstrip(".placements.json")
+        self.im_path = str(path)
 
         im = Image.open(self.im_path)
+        im.load()
+
         im_width = im.width
-        im.close()
         self.im_scale = max(1.0, im_width / self.workspace_canvas.winfo_width())
 
-        with open(path, "rb") as f:
-            placements = json.load(f)
+        placements = json.loads(im.info["pins"])
+
+        im.close()
 
         # validate file
         if not isinstance(placements, list):
