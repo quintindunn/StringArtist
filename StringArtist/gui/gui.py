@@ -29,6 +29,7 @@ TOOLS = [
     "Erase",
     "Prioritize",
     "Export Positions",
+    "Import Positions",
     "Background",
 ]
 
@@ -80,6 +81,8 @@ class GUI:
             return self.background_tool_callback()
         elif TOOLS[idx] == "Export Positions":
             return self.export_positions_callback()
+        elif TOOLS[idx] == "Import Positions":
+            return self.import_positions_callback()
 
         old_btn = (
             self.toolbar_widgets[self.selected_tool]
@@ -117,6 +120,57 @@ class GUI:
             json.dump(data, f)
 
         messagebox.showinfo("File Saved", f"File saved to {path}")
+
+    def import_positions_callback(self) -> None:
+        """
+        The callback for importing placements back into the program
+        :return: None
+        """
+        path = Path(
+            tk.filedialog.askopenfilename(
+                filetypes=(("Placement files", "*.placements.json"),)
+            )
+        )
+        if not path.is_file():
+            messagebox.showinfo("Import Error", f"Couldn't find file {path}!")
+            return
+
+        self.im_path = str(path).rstrip(".placements.json")
+
+        with open(path, "rb") as f:
+            placements = json.load(f)
+
+        # validate file
+        if not isinstance(placements, list):
+            logger.info("JSON contains invalid type!")
+            messagebox.showinfo("Import Error", "Invalid file")
+            return
+
+        new_placements: list[list[int, int, bool]] | list = []
+
+        for i in placements:
+            if not isinstance(i, list):
+                logger.info("JSON contains invalid type!")
+                messagebox.showinfo("Import Error", "Invalid file")
+                return
+
+            for j in i:
+                if not isinstance(j, int):
+                    logger.info("JSON contains invalid type!")
+                    messagebox.showinfo("Import Error", "Invalid file")
+                    return
+
+            new_placements.append([i[0], i[1], bool(i[2])])
+
+        if len(new_placements) < 3:
+            logger.info("Load failed, not enough placements.")
+            messagebox.showinfo("Import Error", "Invalid file")
+            return
+
+        self.placements.clear()
+        self.placements.extend(new_placements)
+
+        self.redraw_canvas()
 
     def background_tool_callback(self) -> None:
         """
