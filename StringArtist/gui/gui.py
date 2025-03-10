@@ -264,7 +264,9 @@ class GUI:
             self.tool_select_callback(TOOLS.index("Background"))
         elif char == "i":
             self.tool_select_callback(TOOLS.index("Import Positions"))
-        elif event.state == 8 and char == "s":
+        elif (event.state == 8 and char == "s") or (
+            event.state == 44 and char == "\x13"
+        ):  # ctrl+s/commands+s
             self.tool_select_callback(TOOLS.index("Export Positions / Save"))
 
     def workspace_click_callback(self, event) -> bool:
