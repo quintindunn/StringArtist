@@ -156,7 +156,11 @@ class GUI:
 
         data = placements_to_json(self.placements, 1 / self.im_scale)
 
-        path = str(self.im_path).rstrip(".stringartpng") + ".stringartpng"
+        path = str(self.im_path)
+        if path.endswith(".stringartpng"):
+            path = path[: -len(".stringartpng")]
+
+        path = path + ".stringartpng"
 
         metadata = PngInfo()
         metadata.add_text("pins", json.dumps(data))
