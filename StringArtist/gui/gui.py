@@ -19,6 +19,7 @@ from StringArtist.config import (
     WORKSPACE_PADDING,
     ICON,
     STRING_FILENAME,
+    RESIZE_DELAY,
 )
 from StringArtist.gui.placements import (
     Placement,
@@ -71,6 +72,7 @@ class GUI:
         )
 
         self.root.bind("<Key>", self.keybind_callback)
+        self.root.bind("<Configure>", self.resize_callback)
 
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(2, weight=1)
@@ -84,6 +86,10 @@ class GUI:
         self.working_im: Union[Image, None] = None
         self.im_path: Union[str, None] = None
         self.im_scale: float = 1
+
+        self.prev_width: int = -1
+        self.prev_height: int = -1
+        self.resize_id: str | None = None
 
         self.draw_toolbar()
         self.draw_workspace()
@@ -227,6 +233,24 @@ class GUI:
 
         self.redraw_canvas()
 
+    def resize_callback(self, event):
+        if event.width == self.prev_width and event.height == self.prev_height:
+            return
+
+        if self.resize_id is not None:
+            self.root.after_cancel(self.resize_id)
+
+        self.resize_id = self.root.after(
+            RESIZE_DELAY, self.resize_canvas, event.width, event.height
+        )
+
+    def resize_canvas(self, w, h):
+        logger.info("Resizing canvas due to window resize.")
+        self.prev_width, self.prev_height = w, h
+        self.redraw_canvas()
+
+        self.resize_id = None
+
     def keybind_callback(self, event) -> None:
         char = event.char.lower()
 
@@ -321,6 +345,9 @@ class GUI:
         Deletes the canvas element, and redraws the image and nails
         :return:
         """
+
+        if self.im_path is None:
+            return
 
         canvas_width, canvas_height = (
             self.workspace_canvas.winfo_width(),
