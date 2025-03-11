@@ -19,6 +19,11 @@ from StringArtist.config import (
     WORKSPACE_PADDING,
     ICON,
 )
+from StringArtist.gui.placements import (
+    Placement,
+    placements_from_json,
+    placements_to_json,
+)
 
 logger = logging.getLogger("gui.py")
 
@@ -81,7 +86,7 @@ class GUI:
         self.draw_toolbar()
         self.draw_workspace()
 
-        self.placements: List[List] = []
+        self.placements: List[Placement] = []
         self.priority_nail: int = 0
 
     @property
@@ -149,17 +154,9 @@ class GUI:
             )
             return
 
-        data = list(
-            map(
-                lambda x: [
-                    self.scale_coordinate(x[0]),
-                    self.scale_coordinate(x[1]),
-                    int(x[2]),
-                ],
-                self.placements,
-            )
-        )
-        path = str(self.im_path) + ".stringartpng"
+        data = placements_to_json(self.placements, 1 / self.im_scale)
+
+        path = str(self.im_path).rstrip(".stringartpng") + ".stringartpng"
 
         metadata = PngInfo()
         metadata.add_text("pins", json.dumps(data))
@@ -185,46 +182,12 @@ class GUI:
         im_width = im.width
         self.im_scale = max(1.0, im_width / self.workspace_canvas.winfo_width())
 
-        placements = json.loads(im.info["pins"])
+        placements = placements_from_json(json.loads(im.info["pins"]))
 
         im.close()
 
-        # validate file
-        if not isinstance(placements, list):
-            logger.info("JSON contains invalid type!")
-            messagebox.showinfo("Import Error", "Invalid file")
-            return
-
-        new_placements: List[List] = list()
-
-        for i in placements:
-            if not isinstance(i, list):
-                logger.info("JSON contains invalid type!")
-                messagebox.showinfo("Import Error", "Invalid file")
-                return
-
-            for j in i:
-                if not isinstance(j, int):
-                    logger.info("JSON contains invalid type!")
-                    messagebox.showinfo("Import Error", "Invalid file")
-                    return
-
-            x, y, p = i
-            new_placements.append(
-                [
-                    self.scale_coordinate(x, scale=1 / self.im_scale),
-                    self.scale_coordinate(y, scale=1 / self.im_scale),
-                    bool(p),
-                ]
-            )
-
-        if len(new_placements) < 3:
-            logger.info("Load failed, not enough placements.")
-            messagebox.showinfo("Import Error", "Invalid file")
-            return
-
         self.placements.clear()
-        self.placements.extend(new_placements)
+        self.placements.extend(placements)
         self.redraw_canvas()
 
     def background_tool_callback(self) -> None:
@@ -322,17 +285,15 @@ class GUI:
         :return: A tuple with the index of the closest nail, and the distance to that nail.
         """
 
-        def distance_to_nail(item: list) -> float:
+        def distance_to_nail(placement: Placement) -> float:
             """
             Calculates the distance to a nail using the x, y passed to get_closest_nail.
-            :param item: List with the nail x, y, and if it's the priority nail.
+            :param placement: The placement that you want to calculate the distance to.
             :return: The distance to the nail
             """
-
-            nail_x, nail_y, _ = item
-
+            x2, y2 = placement.to_scaled(1 / self.im_scale)
             # distance = sqrt((x2-x1)^2+(y2-y1)^2)
-            return math.sqrt(pow(nail_x - x, 2) + pow(nail_y - y, 2))
+            return math.sqrt(pow(x2 - x, 2) + pow(y2 - y, 2))
 
         # Sort the nails
         cloned = sorted(self.placements.copy(), key=distance_to_nail)
@@ -381,8 +342,10 @@ class GUI:
             image=tk_im,
         )
 
-        for x, y, prioritized in self.placements:
-            self.draw_nail(x, y, "#0f0f0f" if not prioritized else "#2fff2f")
+        for placement in self.placements:
+            self.draw_nail(
+                placement, "#0f0f0f" if not placement.priority else "#2fff2f"
+            )
 
     def erase_nail(self, x: int, y: int, safe_zone: int = 6) -> bool:
         """
@@ -408,8 +371,8 @@ class GUI:
 
         selected = self.placements.pop(closest_nail)
 
-        if selected[2] and len(self.placements) > 0:
-            self.placements[0][2] = True
+        if selected.priority and len(self.placements) > 0:
+            self.placements[0].priority = True
 
         self.redraw_canvas()
         return True
@@ -422,8 +385,11 @@ class GUI:
         :param priority: Whether the nail is the priority nail
         :return: None
         """
-        if self.draw_nail(x, y, "#0f0f0f" if not priority else "#2fff2f"):
-            self.placements.append([x, y, priority])
+        placement = Placement(
+            x=round(x * self.im_scale), y=round(y * self.im_scale), priority=priority
+        )
+        if self.draw_nail(placement, "#0f0f0f" if not priority else "#2fff2f"):
+            self.placements.append(placement)
 
     def prioritize_nail(self, x: int, y: int, safe_zone: int = 6) -> bool:
         """
@@ -447,28 +413,46 @@ class GUI:
             )
             return False
 
-        self.placements[self.priority_nail][2] = False
-        self.placements[closest_nail][2] = True
+        self.placements[self.priority_nail].priority = False
+        self.placements[closest_nail].priority = True
         self.priority_nail = closest_nail
 
         self.redraw_canvas()
 
-    def draw_nail(self, x: int, y: int, color: str) -> bool:
+    def draw_nail(
+        self, placement: Placement, color: str, scale_factor: float | None = None
+    ) -> bool:
         """
         Draws a nail on the canvas.
-        :param x: x coordinate of the nail.
-        :param y: y coordinate of the nail.
+        :param placement: The placement object to place
         :param color: Color of the nail (tkinter colors)
+        :param scale_factor: The factor to scale the nail by, leave as None to use GUI.im_scale
         :return:
         """
         if self.workspace_canvas is None:
             logger.warning("Cannot place a nail as there is no workspace_canvas!")
             return False
 
+        scale = scale_factor or 1 / self.im_scale
+
+        px, py = placement.to_scaled(scale)
+
         # Draw the black outline
-        self.workspace_canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="#000000")
+        self.workspace_canvas.create_oval(
+            px - 3,
+            py - 3,
+            px + 3,
+            py + 3,
+            fill="#000000",
+        )
         # Draw the nail using the color
-        self.workspace_canvas.create_oval(x - 2, y - 2, x + 2, y + 2, fill=color)
+        self.workspace_canvas.create_oval(
+            px - 2,
+            py - 2,
+            px + 2,
+            py + 2,
+            fill=color,
+        )
         return True
 
     def draw_toolbar(self) -> None:
