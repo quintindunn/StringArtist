@@ -24,6 +24,7 @@ from StringArtist.gui.placements import (
     Placement,
     placements_from_json,
     placements_to_json,
+    PlacementLoadError,
 )
 
 logger = logging.getLogger("gui.py")
@@ -155,7 +156,11 @@ class GUI:
             )
             return
 
-        data = placements_to_json(self.placements, 1 / self.im_scale)
+        try:
+            data = placements_to_json(self.placements, 1 / self.im_scale)
+        except PlacementLoadError as e:
+            messagebox.showinfo("Load failed", str(e))
+            return
 
         path = str(self.im_path)
         if path.endswith(STRING_FILENAME):
