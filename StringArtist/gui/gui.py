@@ -18,6 +18,7 @@ from StringArtist.config import (
     WINDOW_TITLE,
     WORKSPACE_PADDING,
     ICON,
+    STRING_FILENAME,
 )
 from StringArtist.gui.placements import (
     Placement,
@@ -157,10 +158,10 @@ class GUI:
         data = placements_to_json(self.placements, 1 / self.im_scale)
 
         path = str(self.im_path)
-        if path.endswith(".stringartpng"):
-            path = path[: -len(".stringartpng")]
+        if path.endswith(STRING_FILENAME):
+            path = path[: -len(STRING_FILENAME)]
 
-        path = path + ".stringartpng"
+        path = path + STRING_FILENAME
 
         metadata = PngInfo()
         metadata.add_text("pins", json.dumps(data))
