@@ -27,6 +27,7 @@ from StringArtist.gui.placements import (
     placements_to_json,
     PlacementLoadError,
 )
+from StringArtist.tools.smart_crop import SmartCropper
 
 logger = logging.getLogger("gui.py")
 
@@ -42,6 +43,7 @@ TOOLS = [
     "Export Positions / Save",
     "Import Positions",
     "Background",
+    "Smart Crop",
 ]
 
 
@@ -91,6 +93,8 @@ class GUI:
         self.prev_height: int = -1
         self.resize_id: str | None = None
 
+        self.cropper: SmartCropper = SmartCropper(gui=self)
+
         self.draw_toolbar()
         self.draw_workspace()
 
@@ -122,6 +126,8 @@ class GUI:
             return self.export_positions_callback()
         elif TOOLS[idx] == "Import Positions":
             return self.import_positions_callback()
+        elif TOOLS[idx] == "Smart Crop":
+            return self.cropper.run()
 
         old_btn = (
             self.toolbar_widgets[self.selected_tool]

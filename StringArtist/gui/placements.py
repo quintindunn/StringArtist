@@ -16,9 +16,10 @@ class PlacementLoadError(BaseException):
 
 class Placement:
     def __init__(self, x: int, y: int, priority: bool):
-        self.x: float = x
-        self.y: float = y
+        self.x: int = x
+        self.y: int = y
         self.priority: bool = priority
+        self.cropper_scanned: bool = False
 
     def to_scaled(self, scale: float):
         return round(self.x * scale), round(self.y * scale)
